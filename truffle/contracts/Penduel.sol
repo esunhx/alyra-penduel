@@ -16,8 +16,16 @@ contract Penduel is Ownable {
 
     address[] players;
     mapping (uint8 => bool) guesses;
-    bytes32 answer;
-    States.GameState penduelState;
+    bytes32 internal answer;
+    bytes32 public revealed;
+
+    enum PlayerTurns {
+        Player,
+        Opponent
+    }
+
+    States.GameState public penduelState;
+    PlayerTurns public turns;
 
     event GuessMade(address player, string letter);
     event PlayerIsWinner(address player, uint256 stake);
@@ -30,11 +38,11 @@ contract Penduel is Ownable {
     }
 
     function setWord(bytes32 _wordToGuess) external onlyOwner {
-
+        answer = toLowerCase(_wordToGuess);
     }
 
-    function setState(States.GameState _state) external onlyOwner {
-
+    function setState(States.GameState _state) public onlyOwner {
+        penduelState = _state;
     }
 
     function setOpponent(address _secondPlayer) external onlyOwner {
@@ -47,6 +55,26 @@ contract Penduel is Ownable {
         require(!guesses[_letter], "Letter has already been guessed");
 
         guesses[_letter] = true;
+        revealed = updateRevealed(_letter);
+        if (revealed == answer) {
+            setState(States.GameState.Finished);
+            emit PlayerIsWinner(msg.sender, STAKE);
+        } else {
+            emit GuessMade(msg.sender, string(abi.encodePacked(_letter)));
+        }
+    }
+
+    function guessWord(bytes32 _guess) external {
+        require(penduelState == States.GameState.Active, "Game has not started");
+        if (_guess == answer) {
+            setState(States.GameState.Finished);
+            emit PlayerIsWinner(msg.sender, STAKE);
+        } else {
+            emit GuessMade(msg.sender, string(abi.encodePacked(_guess)));
+        }
+    }
+
+    function updateRevealed(uint8 _letter) internal returns (bytes32) {
 
     }
 
