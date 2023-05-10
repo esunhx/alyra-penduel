@@ -7,5 +7,7 @@ interface IPenduel {
     function setWord(string memory wordToGuess) external;
     function setState(States.GameState state) external;
     function setOpponent(address opponent) external;
+    function setTimer(uint256 endTime) external;
     function getPlayer() external view returns (address);
+    function getOpponent() external view returns (address);
 }
