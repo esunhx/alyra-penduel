@@ -17,24 +17,26 @@ contract Penduel is Ownable {
     uint256 immutable public CREATION_TIME;
 
     uint256 public JOINED_TIME;
+    uint256 public START_TIME;
     uint256 internal SELFDESTRUCT_TIME;
     
     address[2] players;
     mapping (uint8 => bool) guesses;
     bytes32 internal answer;
     bytes32 public revealed;
-    bool firstPlayerTurn;
+    bool playerTurn;
 
     States.GameState public penduelState;
 
-    event GuessMade(address player, string letterOrWord);
-    event PlayerIsWinner(address player, uint256 stake);
+    event GameStarted(address gameAddress, uint256 timeStamp);
+    event GuessMade(address playerOrOpponent, string letterOrWord);
+    event WinnerIs(address playerOrOpponent, uint256 stake);
 
-    constructor(address firstPlayer, uint256 _stake) payable {
+    constructor(address _player, uint256 _stake) payable {
         require(msg.value == _stake/2, "Bet not proportional to stake");
         STAKE = _stake;
         CREATION_TIME = block.timestamp;
-        players[0] = firstPlayer;
+        players[0] = _player;
         penduelState = States.GameState.Created;
     }
 
@@ -46,24 +48,35 @@ contract Penduel is Ownable {
         _;
     }
 
-    function setWord(bytes32 _wordToGuess) internal onlyOwner {
+    function setWord(bytes32 _wordToGuess) external onlyOwner {
         require(penduelState == States.GameState.Created);
         answer = toLowerCase(_wordToGuess);
     }
 
     function setState(States.GameState _state) public onlyOwner {
-        require(uint(penduelState) >= 0, "Invalid set state validation");
+        require(uint(penduelState) >= 0, "Invalid set state operation");
         penduelState = _state;
     }
 
-    function setOpponent(address _secondPlayer) external onlyOwner {
+    function setOpponent(address _opponent) external onlyOwner {
         require(penduelState == States.GameState.Active, "Game is not active");
         require(players[1] == address(0), "Opponent already exists");
         JOINED_TIME = block.timestamp;
-        players[1] = _secondPlayer;
+        players[1] = _opponent;
     }
 
-    function guessLetter(uint8 _letter) internal {
+    function setTimer(uint256 _endTime) external onlyOwner {
+        require(uint(penduelState) >= 0, "Invalid set timer operation");
+        if (_endTime == 0 && penduelState == States.GameState.Created) {
+            SELFDESTRUCT_TIME = CREATION_TIME + 1 hours;
+        } else if (_endTime == 0 && penduelState == States.GameState.Active) {
+            SELFDESTRUCT_TIME = JOINED_TIME + 1 days;
+        } else {
+            SELFDESTRUCT_TIME = START_TIME + _endTime * 7 days;
+        }
+    }
+
+    function makeGuess(uint8 _letter) internal onlyPlayers {
         require(penduelState == States.GameState.Started, "Game has not started");
         require(!guesses[_letter], "Letter has already been guessed");
         bytes32 _guess = toLowerCase(bytes32(abi.encodePacked(_letter)));
@@ -71,13 +84,13 @@ contract Penduel is Ownable {
         revealed = updateRevealed(_guess);
         if (revealed == answer) {
             setState(States.GameState.Finished);
-            if (firstPlayerTurn) {
-                emit PlayerIsWinner(players[0], STAKE);
+            if (playerTurn) {
+                emit WinnerIs(players[0], STAKE);
             } else {
-                emit PlayerIsWinner(players[1], STAKE);
+                emit WinnerIs(players[1], STAKE);
             }
         } else {
-            if (firstPlayerTurn) {
+            if (playerTurn) {
                 emit GuessMade(players[0], string(abi.encodePacked(_guess)));
             } else {
                 emit GuessMade(players[1], string(abi.encodePacked(_guess)));
@@ -85,18 +98,18 @@ contract Penduel is Ownable {
         }
     }
 
-    function guessWord(bytes32 _guess) internal {
+    function makeGuess(bytes32 _guess) internal onlyPlayers {
         require(penduelState == States.GameState.Started, "Game has not started");
         _guess = toLowerCase(_guess);
         if (_guess == answer) {
             setState(States.GameState.Finished);
-            if (firstPlayerTurn) {
-                emit PlayerIsWinner(players[0], STAKE);
+            if (playerTurn) {
+                emit WinnerIs(players[0], STAKE);
             } else {
-                emit PlayerIsWinner(players[1], STAKE);
+                emit WinnerIs(players[1], STAKE);
             }
         } else {
-            if (firstPlayerTurn) {
+            if (playerTurn) {
                 emit GuessMade(players[0], string(abi.encodePacked(_guess)));
             } else {
                 emit GuessMade(players[1], string(abi.encodePacked(_guess)));
@@ -113,6 +126,34 @@ contract Penduel is Ownable {
             }
         }
         return _revealedCopy;
+    }
+
+    function startPenduel() external onlyPlayers {
+        require(penduelState == States.GameState.Active, "Game is not active");
+        setState(States.GameState.Started);
+        START_TIME = block.timestamp;
+        emit GameStarted(address(this), START_TIME);
+        if (msg.sender == players[0]) {
+            playerTurn = true;
+        } else {
+            playerTurn = false;
+        }
+    }
+
+    function playPenduel(bytes32 _guess) external onlyPlayers {
+        require(penduelState == States.GameState.Started, "Game has not started");
+        if (playerTurn) {
+            require(msg.sender == players[0], "Only player can guess now");
+        } else {
+            require(msg.sender == players[1], "Only opponent can guess now");
+        }
+        if (_guess.length == 1) {
+            makeGuess(uint8(uint256(_guess)));
+        } else {
+            makeGuess(_guess);
+        }
+        handleTimer();
+        playerTurn = !playerTurn;
     }
 
     function getPlayer() external view returns (address) {
@@ -138,10 +179,5 @@ contract Penduel is Ownable {
         return abi.decode(_outputBytes, (bytes32));
     }
 
-    // function selfDestruct() external onlyOwner {
-    //     require(block.timestamp > SELFDESTRUCT_TIME, "You still have time");
-    //     if (firstPlayerTurn) {
-    //         selfdestruct(players[0]);
-    //     }   
-    // }
+    function handleTimer() internal {}
 }
