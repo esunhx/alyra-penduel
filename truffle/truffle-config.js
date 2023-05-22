@@ -19,6 +19,14 @@ module.exports = {
       },
       network_id: 5,
     },
+    sepolia: {
+      provider: function () {
+        return new HDWalletProvider(
+          `${process.env.MNEMONIC}`,
+          `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`
+        )
+      }
+    }
   },
   mocha: {
     reporter: 'eth-gas-reporter',
