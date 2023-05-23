@@ -6,11 +6,19 @@ import "./../node_modules/@chainlink/contracts/src/v0.8/interfaces/LinkTokenInte
 import "./../node_modules/@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "./../node_modules/@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
 
+/**
+ * @author  Ascanio Macchi di Cellere
+ * @title   VRF consumer contract
+ * @dev     Contract responsible for requesting random words and manage
+ certain aspects of the subscriptions.
+ */
+
 contract VRFConsumer is VRFConsumerBaseV2, ConfirmedOwner {
     uint64 immutable internal subId;
     bytes32 immutable internal keyHash;
     uint32 immutable internal callbackGasLimit;
     uint16 immutable internal requestConfirmations;
+    uint32 immutable internal numWords;
 
     VRFCoordinatorV2Interface immutable COORDINATOR;
     LinkTokenInterface internal immutable LINKTOKEN;
@@ -28,7 +36,6 @@ contract VRFConsumer is VRFConsumerBaseV2, ConfirmedOwner {
 
     uint256[] public requestIds;
     uint256 public lastRequestId;
-    uint32 numWords;
 
     constructor(
         address _coordinatorAddr,
@@ -44,8 +51,14 @@ contract VRFConsumer is VRFConsumerBaseV2, ConfirmedOwner {
         keyHash = _keyHash;
         callbackGasLimit = _callbackGasLimit;
         requestConfirmations = _requestConfirmations;
+        numWords = 1;
     }
 
+    /**
+     * @dev     Function to be called in order to make a ChainLink VRF request.
+     * @return  requestId  Id of a give request, to be stored in the state
+     mapping requests.
+     */
     function requestRandomWords() external onlyOwner returns (uint256 requestId) {
         requestId = COORDINATOR.requestRandomWords(
             keyHash, 
@@ -65,6 +78,12 @@ contract VRFConsumer is VRFConsumerBaseV2, ConfirmedOwner {
         return requestId;
     }
 
+    /**
+     * @dev     Callback function to ensure a request has been fulfilled and
+     receive de random words requested.
+     * @param   _requestId  Id of a given given request.
+     * @param   _randomWords  List of random words requested.
+     */
     function fulfillRandomWords(
         uint256 _requestId, 
         uint256[] memory _randomWords
@@ -75,6 +94,12 @@ contract VRFConsumer is VRFConsumerBaseV2, ConfirmedOwner {
         emit RequestFulfilled(_requestId, _randomWords);
     }
 
+    /**
+     * @dev     .
+     * @param   _requestId  .
+     * @return  fulfilled  .
+     * @return  randomWords  .
+     */
     function getRequestStatus(
         uint256 _requestId
     ) external view onlyOwner returns (bool fulfilled, uint256[] memory randomWords) {
@@ -83,6 +108,11 @@ contract VRFConsumer is VRFConsumerBaseV2, ConfirmedOwner {
         return (request.fulfilled, request.randomWords);
     }
 
+    /**
+     * @notice  .
+     * @dev     .
+     * @param   _amount  .
+     */
     function topUpSubscription(uint256 _amount) external onlyOwner {
         LINKTOKEN.transferAndCall(
             address(COORDINATOR),

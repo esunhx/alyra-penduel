@@ -85,9 +85,9 @@ contract Penduel is Ownable {
         which players have to guess in order to win the stake.
      * @param   _wordToGuess  The answer parameter input.
      */
-    function setWord(bytes32 _wordToGuess) external onlyOwner {
+    function setWord(uint256 _wordToGuess) external onlyOwner {
         require(penduelState == States.GameState.Created);
-        answer = toLowerCase(_wordToGuess);
+        answer = toLowerCase(bytes32(_wordToGuess));
     }
 
     /**
@@ -251,7 +251,7 @@ contract Penduel is Ownable {
      * @dev     Function to read the first address stored inside the state array players.
      * @return  address  The address stored at players[0].
      */
-    function getPlayer() external view onlyOwner returns (address payable) {
+    function getPlayer() external view onlyOwner returns (address) {
         require(players[0] != address(0), "Player not found");
         return players[0];
     }
