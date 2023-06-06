@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const Web3 = require("web3");
 const HDWalletProvider = require('@truffle/hdwallet-provider');
-const { abi, bytecode} = require("./../../client/src/contracts/Penduel.json");
+const { abi, bytecode} = require("../../client/src/contracts/Penduel.json");
 
 // console.log("ABI",abi)
 // console.log("MNEMONIC", process.env.MNEMONIC)

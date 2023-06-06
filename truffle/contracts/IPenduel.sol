@@ -10,5 +10,5 @@ interface IPenduel {
     function setTimer(uint256 endTime) external;
     function getPlayer() external view returns (address);
     function getOpponent() external view returns (address);
-    function handleActivity() external;
+    function startPenduel(address playerOrOpponent) external;
 }

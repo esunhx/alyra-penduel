@@ -21,6 +21,7 @@ contract PenduelFactory is Ownable {
 
     event NewGame(uint256 indexed requestId, address indexed player);
     event JoinedGame(uint256 indexed requestId, address indexed opponent);
+    event PlayerReconnected(uint256 indexed requestId, address indexed playerOrOpponent);
 
     constructor(
         address _coordinatorAddr,
@@ -101,6 +102,8 @@ contract PenduelFactory is Ownable {
             (new Penduel){ value: msg.value}(player, _stake)
         );
         IPenduel(games[_requestId]).setWord(_word);
+        IPenduel(games[_requestId]).setTimer(0);
+        emit NewGame(_requestId, msg.sender);
     }
 
     /**
@@ -118,10 +121,40 @@ contract PenduelFactory is Ownable {
         require(success, "Unable to pay for the transaction");
         address payable opponent = payable(msg.sender);
         IPenduel(games[_requestId]).setOpponent(opponent);
+        IPenduel(games[_requestId]).setTimer(1);
         emit JoinedGame(_requestId, msg.sender);
     }
 
+    /**
+     * @dev     Function to reconnect a player to an existing Penduel game instance,
+     which he is already registered with.
+     * @param   _requestId Id associated with a VRF request for a random
+     generated word, associated with an existing Penduel instance.
+     */
     function joinExistingGame(uint256 _requestId) external {
+        require(games[_requestId] != address(0), "Game does not exists!");
+        require(
+            msg.sender == IPenduel(games[_requestId]).getPlayer() ||
+            msg.sender == IPenduel(games[_requestId]).getOpponent(),
+            "Player not recognised for game Id"
+        );
 
+        emit PlayerReconnected(_requestId, msg.sender);
+    }
+
+    /**
+     * @dev     Function to call the startPenduel function of a given
+     Penduel instance.
+     * @param   _requestId Id associated with a VRF request for a random
+     generated word, associated with an existing Penduel instance.
+     */
+    function beginPenduel(uint256 _requestId) external {
+        require(games[_requestId] != address(0), "Game does not exists!");
+        require(
+            msg.sender == IPenduel(games[_requestId]).getPlayer() ||
+            msg.sender == IPenduel(games[_requestId]).getOpponent(),
+            "Player not recognised for game Id"
+        );
+        IPenduel(games[_requestId]).startPenduel(msg.sender);
     }
 }

@@ -124,6 +124,8 @@ contract Penduel is Ownable {
             ACTIVITY_TIME = CREATION_TIME + 1 hours;
         } else if (_endTime == 0 && penduelState == States.GameState.Active) {
             ACTIVITY_TIME = JOINED_TIME + 1 days;
+        } else if (_endTime == 0 && penduelState == States.GameState.Finished) {
+            ACTIVITY_TIME = block.timestamp;
         } else {
             ACTIVITY_TIME = START_TIME + _endTime * 7 days;
         }
@@ -212,12 +214,12 @@ contract Penduel is Ownable {
      It also sets whether the first or second player started the game, through a boolean
      state variable.
      */
-    function startPenduel() external onlyPlayers {
+    function startPenduel(address _player) external onlyOwner {
         require(penduelState == States.GameState.Active, "Game is not active");
         setState(States.GameState.Started);
         START_TIME = block.timestamp;
         emit GameStarted(address(this), START_TIME);
-        if (msg.sender == players[0]) {
+        if (_player == players[0]) {
             playerTurn = true;
         } else {
             playerTurn = false;
@@ -243,7 +245,7 @@ contract Penduel is Ownable {
         } else {
             makeGuess(_guess);
         }
-        handleTimer();
+        handleActivity();
         playerTurn = !playerTurn;
     }
 
@@ -260,7 +262,7 @@ contract Penduel is Ownable {
      * @dev     Function to read the second address stored inside the state array players.
      * @return  address  The address stored at players[1].
      */
-    function getOpponent() external view onlyOwner   returns (address) {
+    function getOpponent() external view onlyOwner returns (address) {
         require(players[1] != address(0), "Opponent not found");
         return players[1];
     }
@@ -285,15 +287,6 @@ contract Penduel is Ownable {
     }
 
     /**
-     * @dev Utility function to call the handleActivity function at the right time.
-     */
-    function handleTimer() internal onlyPlayers() {
-        if (block.timestamp >= ACTIVITY_TIME) {
-            handleActivity();
-        }
-    }
-
-    /**
      * @dev Utility function to handle the ACTIVITY_TIME, which determines:
      - the max play time of a Penduel instance or
      - the expiration of a game because an opponent did not join. 
@@ -301,7 +294,7 @@ contract Penduel is Ownable {
      has to be terminated. It calls the sendFunds function to return the funds 
      held by a Penduel instance to the appropriate player's address.
      */
-    function handleActivity() public onlyAuthorised {
+    function handleActivity() internal onlyPlayers {
         require(block.timestamp >= ACTIVITY_TIME, "You still got time");
         require(isACTIVE, "Contract is already inactive");
         if (address(this).balance > 0) {
